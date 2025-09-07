@@ -79,6 +79,7 @@ message_loop :: () {
     while true {
 
         message := compiler_wait_for_message();
+        print("message kind %\n", message.kind);
         if message.kind == {
           case .FILE;
           case .IMPORT;

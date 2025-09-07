@@ -3,3 +3,53 @@ zig-out/
 build/
 .build/
 
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.npm
+.yarn-integrity
+.yarn/*
+!.yarn/patches
+!.yarn/releases
+!.yarn/plugins
+!.yarn/sdks
+!.yarn/versions
+*.tsbuildinfo
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+logs/
+*.log
+
+# Dependencies
+bower_components/
+
+# Testing
+coverage/
+.nyc_output/
+
+# Production builds
+dist/
+dist-ssr/
+*.local
+
+# Temporary files
+.tmp/
+.temp/
+tmp/
+temp/
+
+# Package manager locks (optional - uncomment if you want to ignore them)
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
