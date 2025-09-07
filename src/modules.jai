@@ -1,10 +1,12 @@
 Request_Context :: struct {
-    server:    *Server;
-    socket:    Socket;
-    pool:      Flat_Pool;
-    allocator: Allocator;
-    request:   HTTP_Request;
-    response:  HTTP_Response;
+    server:      *Server;
+    socket:      Socket;
+    pool:        Flat_Pool;
+    allocator:   Allocator;
+    request:     HTTP_Request;
+    response:    HTTP_Response;
+    start_time:  Apollo_Time;
+    client_addr: string;
 }
 
 Server :: struct {
@@ -99,13 +101,13 @@ server_accept_callback :: (handle: Loop_Handle, user_data: *void) {
     // Set client socket to non-blocking
     set_blocking(client_socket, false);
     
-    log("Accepted connection from %", to_string(client_addr));
-    
     // Create context with its own pool allocator
     ctx: Request_Context;
     ctx.server = server;
     ctx.socket = client_socket;
     ctx.allocator = Allocator.{flat_pool_allocator_proc, *ctx.pool};
+    ctx.start_time = current_time_monotonic();
+    ctx.client_addr = to_string(client_addr);
     
     // Set context allocator as current
     push_allocator(ctx.allocator);
@@ -158,20 +160,6 @@ server_accept_callback :: (handle: Loop_Handle, user_data: *void) {
             return;
         }
         
-        // Log the parsed request
-        print("\n========================================\n");
-        print("REQUEST:\n");
-        print("  Method: %\n", ctx.request.method);
-        print("  Path: %\n", ctx.request.path);
-        print("  Version: %\n", ctx.request.version);
-        print("  Headers:\n");
-        for ctx.request.headers {
-            print("    %: %\n", it.name, it.value);
-        }
-        if ctx.request.body.count > 0 {
-            print("  Body: %\n", ctx.request.body);
-        }
-        
         // Build and send response
         ctx.response = response_init(ctx.allocator);
         
@@ -182,15 +170,28 @@ server_accept_callback :: (handle: Loop_Handle, user_data: *void) {
         
         response_str := response_build(*ctx.response);
         
-        print("\nRESPONSE:\n%", response_str);
-        print("========================================\n");
-        
         bytes_sent := send(client_socket, response_str.data, cast(u64)response_str.count, 0);
         if bytes_sent < 0 {
             log_error("Failed to send response: %", get_last_socket_error());
-        } else {
-            log("Sent % bytes", bytes_sent);
         }
+        
+        end_time := current_time_monotonic();
+        latency_us := to_microseconds(end_time - ctx.start_time);
+        
+        now := to_calendar(current_time_consensus());
+        time_str := tprint("%:%:%", 
+                          formatInt(now.hour, minimum_digits=2), 
+                          formatInt(now.minute, minimum_digits=2), 
+                          formatInt(now.second, minimum_digits=2));
+        
+        // Format: HH:MM:SS | STATUS | LATENCY | IP | METHOD | PATH | -
+        print("% | % | %µs | % | % | % | -\n", 
+              time_str,
+              ctx.response.status_code,
+              latency_us,
+              ctx.client_addr,
+              ctx.request.method,
+              ctx.request.path);
     }
 } 
 
@@ -200,4 +201,5 @@ server_accept_callback :: (handle: Loop_Handle, user_data: *void) {
 #load "http.jai";
 #import "Socket";
 #import "Flat_Pool";
-#import "POSIX"; 
+#import "POSIX";
+#import "Basic"; 
